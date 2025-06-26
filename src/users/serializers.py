@@ -45,3 +45,23 @@ class UserLoginSerializer(serializers.Serializer):
             raise serializers.ValidationError("Incorrect password.")
 
         return {"user": user}
+
+
+class UserSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = [
+            "id",
+            "email",
+            "first_name",
+            "last_name",
+            "address",
+            "phone_number",
+            "date_joined",
+        ]
+        read_only_fields = ["id", "date_joined"]
+
+    def to_representation(self, instance: User) -> dict[str, Any]:
+        representation = super().to_representation(instance)
+        representation["full_name"] = f"{instance.first_name} {instance.last_name}"
+        return representation
