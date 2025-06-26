@@ -17,10 +17,15 @@ from .serializers import (
     BorrowListSerializer,
     BorrowUpdateSerializer,
 )
+from lms.permissions import IsAdmin
 
 
 class BookAPIView(APIView):
-    permission_classes = [IsAuthenticated]
+
+    def get_permissions(self):
+        if self.request.method in ["POST"]:
+            return [IsAuthenticated(), IsAdmin()]
+        return [IsAuthenticated()]
 
     @swagger_auto_schema(
         request_body=BookAddSerializer,
@@ -53,7 +58,11 @@ class BookAPIView(APIView):
 
 
 class SpecificBookAPIView(APIView):
-    permission_classes = [IsAuthenticated]
+
+    def get_permissions(self):
+        if self.request.method in ["PATCH", "DELETE"]:
+            return [IsAuthenticated(), IsAdmin()]
+        return [IsAuthenticated()]
 
     @swagger_auto_schema(
         responses={
@@ -125,7 +134,7 @@ class SpecificBookAPIView(APIView):
 
 
 class SpecificBookBorrowAPIView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsAdmin]
 
     @swagger_auto_schema()
     def get(
@@ -148,7 +157,10 @@ class SpecificBookBorrowAPIView(APIView):
 
 
 class BorrowAPIView(APIView):
-    permission_classes = [IsAuthenticated]
+    def get_permissions(self):
+        if self.request.method in ["GET"]:
+            return [IsAuthenticated(), IsAdmin()]
+        return [IsAuthenticated()]
 
     @swagger_auto_schema(request_body=BorrowSerializer)
     def post(
@@ -188,7 +200,7 @@ class BorrowAPIView(APIView):
 
 
 class BorrowUpdateAPIView(APIView):
-    permission_classes = [IsAuthenticated]
+    permission_classes = [IsAuthenticated, IsAdmin]
 
     @swagger_auto_schema(
         request_body=BorrowUpdateSerializer,
