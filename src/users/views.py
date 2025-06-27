@@ -7,9 +7,11 @@ from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework.permissions import IsAuthenticated
 
 from .models import User
-from .serializers import UserRegisterSerializer, UserLoginSerializer
+from .serializers import UserRegisterSerializer, UserLoginSerializer, UserListSerializer
+from lms.permissions import IsAdmin
 from lms.utils.response import api_response
 
 
@@ -55,6 +57,30 @@ class UserLoginView(APIView):
             message="User logged in successfully",
             status_code=status.HTTP_200_OK,
         )
+
+
+class UserListView(APIView):
+    permission_classes = [IsAuthenticated, IsAdmin]
+
+    @swagger_auto_schema()
+    def get(
+        self: "UserListView", request: Request, *args: Any, **kwargs: Any
+    ) -> Response:
+        try:
+            users = (
+                User.objects.all().exclude(is_superuser=True).order_by("-date_joined")
+            )
+            user_data = UserListSerializer(users, many=True).data
+            return api_response(
+                data=user_data,
+                message="User list retrieved successfully",
+                status_code=status.HTTP_200_OK,
+            )
+        except Exception as e:
+            return api_response(
+                message=f"Error retrieving user list: {str(e)}",
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
 
 
 class TokenRefreshView(APIView):

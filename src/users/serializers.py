@@ -65,3 +65,15 @@ class UserSerializer(serializers.ModelSerializer):
         representation = super().to_representation(instance)
         representation["full_name"] = f"{instance.first_name} {instance.last_name}"
         return representation
+
+
+class UserListSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = ["id", "email", "first_name", "last_name"]
+        read_only_fields = ["id", "email", "first_name", "last_name"]
+
+    def to_representation(self, instance: User) -> dict[str, Any]:
+        representation = super().to_representation(instance)
+        representation["full_name"] = f"{instance.first_name} {instance.last_name}"
+        return representation
