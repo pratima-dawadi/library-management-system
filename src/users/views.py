@@ -8,6 +8,7 @@ from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from .serializers import UserRegisterSerializer, UserLoginSerializer
+from lms.utils.response import api_response
 
 
 class UserRegisterView(APIView):
@@ -18,18 +19,15 @@ class UserRegisterView(APIView):
     ) -> Response:
         serializer = UserRegisterSerializer(data=request.data)
         if not serializer.is_valid():
-            return Response(
+            return api_response(
                 data=serializer.errors,
-                status=status.HTTP_400_BAD_REQUEST,
+                message="Invalid data",
+                status_code=status.HTTP_400_BAD_REQUEST,
             )
-        user = serializer.save()
-        refresh = RefreshToken.for_user(user)
-        return Response(
-            {
-                "refresh": str(refresh),
-                "access": str(refresh.access_token),
-            },
-            status=status.HTTP_201_CREATED,
+        return api_response(
+            data=serializer.data,
+            message="User registered successfully",
+            status_code=status.HTTP_201_CREATED,
         )
 
 
@@ -47,10 +45,11 @@ class UserLoginView(APIView):
             )
         user = serializer.validated_data["user"]
         refresh = RefreshToken.for_user(user)
-        return Response(
-            {
+        return api_response(
+            data={
                 "refresh": str(refresh),
                 "access": str(refresh.access_token),
             },
-            status=status.HTTP_201_CREATED,
+            message="User logged in successfully",
+            status_code=status.HTTP_200_OK,
         )

@@ -1,7 +1,5 @@
 from typing import Any
 
-
-from drf_yasg import openapi
 from drf_yasg.utils import swagger_auto_schema
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
@@ -14,6 +12,7 @@ from .serializers import (
     BookReviewAddSerializer,
     BookReviewSerializer,
 )
+from lms.utils.response import api_response
 
 
 class BookReviewAPIView(APIView):
@@ -31,11 +30,15 @@ class BookReviewAPIView(APIView):
         if serializer.is_valid(raise_exception=True):
             serializer.save()
 
-            return Response(
+            return api_response(
                 data=serializer.data,
-                status=status.HTTP_201_CREATED,
+                message="Book review added successfully",
+                status_code=status.HTTP_201_CREATED,
             )
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        return api_response(
+            message="Book review addition failed",
+            status_code=status.HTTP_400_BAD_REQUEST,
+        )
 
     @swagger_auto_schema(
         responses={
@@ -48,11 +51,19 @@ class BookReviewAPIView(APIView):
         user = request.user
 
         if user.is_superuser:
-            book_reviews = BookReview.objects.filter(is_deleted=False)
+            book_reviews = BookReview.objects.filter(is_deleted=False).order_by(
+                "-created_at"
+            )
         else:
-            book_reviews = BookReview.objects.filter(user=user, is_deleted=False)
+            book_reviews = BookReview.objects.filter(
+                user=user, is_deleted=False
+            ).order_by("-created_at")
         serializer = BookReviewSerializer(book_reviews, many=True)
-        return Response(data=serializer.data, status=status.HTTP_200_OK)
+        return api_response(
+            data=serializer.data,
+            message="Book reviews retrieved successfully",
+            status_code=status.HTTP_200_OK,
+        )
 
 
 class SpecificBookReviewAPIView(APIView):
@@ -78,8 +89,13 @@ class SpecificBookReviewAPIView(APIView):
                     status=status.HTTP_403_FORBIDDEN,
                 )
             serializer = BookReviewSerializer(book_review)
-            return Response(data=serializer.data, status=status.HTTP_200_OK)
+            return api_response(
+                data=serializer.data,
+                message="Book review retrieved successfully",
+                status_code=status.HTTP_200_OK,
+            )
         except BookReview.DoesNotExist:
-            return Response(
-                {"detail": "Book review not found"}, status=status.HTTP_404_NOT_FOUND
+            return api_response(
+                message="Book review not found",
+                status_code=status.HTTP_404_NOT_FOUND,
             )

@@ -18,6 +18,7 @@ from .serializers import (
     BorrowUpdateSerializer,
 )
 from lms.permissions import IsAdmin
+from lms.utils.response import api_response
 
 
 class BookAPIView(APIView):
@@ -38,9 +39,10 @@ class BookAPIView(APIView):
         if serializer.is_valid(raise_exception=True):
             serializer.save()
 
-            return Response(
+            return api_response(
                 data=serializer.data,
-                status=status.HTTP_201_CREATED,
+                message="Book added successfully",
+                status_code=status.HTTP_201_CREATED,
             )
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -54,7 +56,11 @@ class BookAPIView(APIView):
     ) -> Response:
         books = Book.objects.filter(is_deleted=False)
         serializer = BookListSerializer(books, many=True)
-        return Response(data=serializer.data, status=status.HTTP_200_OK)
+        return api_response(
+            data=serializer.data,
+            message="Books retrieved successfully",
+            status_code=status.HTTP_200_OK,
+        )
 
 
 class SpecificBookAPIView(APIView):
@@ -79,10 +85,14 @@ class SpecificBookAPIView(APIView):
         try:
             book = Book.objects.get(id=id, is_deleted=False)
             serializer = BookListSerializer(book)
-            return Response(data=serializer.data, status=status.HTTP_200_OK)
+            return api_response(
+                data=serializer.data,
+                message="Book retrieved successfully",
+                status_code=status.HTTP_200_OK,
+            )
         except Book.DoesNotExist:
-            return Response(
-                {"detail": "Book not found"}, status=status.HTTP_404_NOT_FOUND
+            return api_response(
+                message="Book not found", status_code=status.HTTP_404_NOT_FOUND
             )
 
     @swagger_auto_schema(
@@ -100,18 +110,23 @@ class SpecificBookAPIView(APIView):
             serializer = BookAddSerializer(book, data=request.data, partial=True)
             if serializer.is_valid(raise_exception=True):
                 serializer.save()
-                return Response(data=serializer.data, status=status.HTTP_200_OK)
+                return api_response(
+                    data=serializer.data,
+                    message="Book updated successfully",
+                    status_code=status.HTTP_200_OK,
+                )
+            else:
+                return api_response(
+                    message="Book update failed",
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                )
         except Book.DoesNotExist:
-            return Response(
-                {"detail": "Book not found"}, status=status.HTTP_404_NOT_FOUND
+            print("not found ")
+            return api_response(
+                message="Book not found", status_code=status.HTTP_404_NOT_FOUND
             )
 
-    @swagger_auto_schema(
-        responses={
-            status.HTTP_204_NO_CONTENT: "Book deleted successfully",
-            status.HTTP_404_NOT_FOUND: "Book not found",
-        }
-    )
+    @swagger_auto_schema()
     def delete(
         self: "SpecificBookAPIView",
         request: Request,
@@ -123,13 +138,13 @@ class SpecificBookAPIView(APIView):
             book = Book.objects.get(id=id, is_deleted=False)
             book.is_deleted = True
             book.save()
-            return Response(
-                {"detail": "Book deleted successfully"},
-                status=status.HTTP_204_NO_CONTENT,
+            return api_response(
+                message="Book deleted successfully",
+                status_code=status.HTTP_200_OK,
             )
         except Book.DoesNotExist:
-            return Response(
-                {"detail": "Book not found"}, status=status.HTTP_404_NOT_FOUND
+            return api_response(
+                message="Book not found", status_code=status.HTTP_404_NOT_FOUND
             )
 
 
@@ -149,10 +164,14 @@ class SpecificBookBorrowAPIView(APIView):
             borrows = Borrow.objects.filter(books=book)
 
             serializer = BorrowListSerializer(borrows, many=True)
-            return Response(data=serializer.data, status=status.HTTP_200_OK)
+            return api_response(
+                data=serializer.data,
+                message="Borrowed books retrieved successfully",
+                status_code=status.HTTP_200_OK,
+            )
         except Book.DoesNotExist:
-            return Response(
-                {"detail": "Book not found"}, status=status.HTTP_404_NOT_FOUND
+            return api_response(
+                message="Book not found", status_code=status.HTTP_404_NOT_FOUND
             )
 
 
@@ -170,14 +189,21 @@ class BorrowAPIView(APIView):
         try:
             if serializer.is_valid():
                 serializer.save()
-                return Response(
-                    {"detail": "Book borrowed successfully"},
-                    status=status.HTTP_201_CREATED,
+                return api_response(
+                    data=serializer.data,
+                    message="Borrowed book successfully",
+                    status_code=status.HTTP_201_CREATED,
                 )
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+            return api_response(
+                message="Borrowing book failed",
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
 
         except serializer.ValidationError as e:
-            return Response({"detail": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+            return api_response(
+                message=str(e),
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
 
     @swagger_auto_schema(
         responses={
@@ -190,13 +216,25 @@ class BorrowAPIView(APIView):
     def get(
         self: "BorrowAPIView", request: Request, *args: Any, **kwargs: Any
     ) -> Response:
-        user = request.user
-        if user.is_superuser:
-            borrowed_books = Borrow.objects.all().order_by("-borrowed_at")
-        else:
-            borrowed_books = Borrow.objects.filter(users=user).order_by("-borrowed_at")
-        serializer = BorrowSerializer(borrowed_books, many=True)
-        return Response(data=serializer.data, status=status.HTTP_200_OK)
+        try:
+            user = request.user
+            if user.is_superuser:
+                borrowed_books = Borrow.objects.all().order_by("-borrowed_at")
+            else:
+                borrowed_books = Borrow.objects.filter(users=user).order_by(
+                    "-borrowed_at"
+                )
+            serializer = BorrowListSerializer(borrowed_books, many=True)
+            return api_response(
+                data=serializer.data,
+                message="Borrowed books retrieved successfully",
+                status_code=status.HTTP_200_OK,
+            )
+        except Borrow.DoesNotExist:
+            return api_response(
+                message="No borrowed books found",
+                status_code=status.HTTP_404_NOT_FOUND,
+            )
 
 
 class BorrowUpdateAPIView(APIView):
@@ -224,8 +262,12 @@ class BorrowUpdateAPIView(APIView):
             serializer = BorrowUpdateSerializer(borrow, data=request.data, partial=True)
             if serializer.is_valid(raise_exception=True):
                 serializer.save()
-                return Response(data=serializer.data, status=status.HTTP_200_OK)
+                return api_response(
+                    data=serializer.data,
+                    message="Borrow updated successfully",
+                    status_code=status.HTTP_200_OK,
+                )
         except Borrow.DoesNotExist:
-            return Response(
-                {"detail": "Borrow not found"}, status=status.HTTP_404_NOT_FOUND
+            return api_response(
+                message="Borrow not found", status_code=status.HTTP_404_NOT_FOUND
             )
