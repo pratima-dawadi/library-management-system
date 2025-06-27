@@ -1,5 +1,6 @@
 from typing import Any
 
+from drf_yasg import openapi
 from drf_yasg.utils import swagger_auto_schema
 from rest_framework import status
 from rest_framework.request import Request
@@ -7,6 +8,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
 
+from .models import User
 from .serializers import UserRegisterSerializer, UserLoginSerializer
 from lms.utils.response import api_response
 
@@ -53,3 +55,38 @@ class UserLoginView(APIView):
             message="User logged in successfully",
             status_code=status.HTTP_200_OK,
         )
+
+
+class TokenRefreshView(APIView):
+    @swagger_auto_schema(
+        request_body=openapi.Schema(
+            type=openapi.TYPE_OBJECT,
+            properties={
+                "refresh_token": openapi.Schema(
+                    type=openapi.TYPE_STRING, description="Refresh token"
+                ),
+            },
+        )
+    )
+    def post(
+        self: "TokenRefreshView", request: Any, *args: Any, **kwargs: Any
+    ) -> Response:
+        refresh_token = request.data.get("refresh_token")
+
+        try:
+            refresh = RefreshToken(refresh_token)
+            user = User.objects.get(id=refresh["user_id"])
+            refresh_token = RefreshToken.for_user(user)
+            return api_response(
+                data={
+                    "refresh_token": str(refresh_token),
+                    "access_token": str(refresh_token.access_token),
+                },
+                message="Token refreshed successfully",
+                status_code=status.HTTP_200_OK,
+            )
+        except Exception:
+            return api_response(
+                message="Invalid refresh token",
+                status_code=status.HTTP_400_BAD_REQUEST,
+            )
