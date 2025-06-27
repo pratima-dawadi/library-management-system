@@ -12,6 +12,7 @@ from .serializers import (
     BookReviewAddSerializer,
     BookReviewSerializer,
 )
+from lms.utils.pagination import CustomPagination
 from lms.utils.response import api_response
 
 
@@ -59,6 +60,13 @@ class BookReviewAPIView(APIView):
                 user=user, is_deleted=False
             ).order_by("-created_at")
         serializer = BookReviewSerializer(book_reviews, many=True)
+
+        paginator = CustomPagination()
+        page = paginator.paginate_queryset(book_reviews, request)
+
+        if page is not None:
+            return paginator.get_paginated_response(serializer.data)
+
         return api_response(
             data=serializer.data,
             message="Book reviews retrieved successfully",
@@ -89,6 +97,13 @@ class SpecificBookReviewAPIView(APIView):
                     status=status.HTTP_403_FORBIDDEN,
                 )
             serializer = BookReviewSerializer(book_review)
+
+            paginator = CustomPagination()
+            page = paginator.paginate_queryset([book_review], request)
+
+            if page is not None:
+                return paginator.get_paginated_response(serializer.data)
+
             return api_response(
                 data=serializer.data,
                 message="Book review retrieved successfully",

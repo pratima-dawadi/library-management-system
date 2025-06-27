@@ -19,6 +19,7 @@ from .serializers import (
 )
 from lms.permissions import IsAdmin
 from lms.utils.response import api_response
+from lms.utils.pagination import CustomPagination
 
 
 class BookAPIView(APIView):
@@ -56,6 +57,12 @@ class BookAPIView(APIView):
     ) -> Response:
         books = Book.objects.filter(is_deleted=False)
         serializer = BookListSerializer(books, many=True)
+        paginator = CustomPagination()
+        page = paginator.paginate_queryset(books, request)
+
+        if page is not None:
+            return paginator.get_paginated_response(serializer.data)
+
         return api_response(
             data=serializer.data,
             message="Books retrieved successfully",
@@ -164,6 +171,13 @@ class SpecificBookBorrowAPIView(APIView):
             borrows = Borrow.objects.filter(books=book)
 
             serializer = BorrowListSerializer(borrows, many=True)
+
+            paginator = CustomPagination()
+            page = paginator.paginate_queryset(borrows, request)
+
+            if page is not None:
+                return paginator.get_paginated_response(serializer.data)
+
             return api_response(
                 data=serializer.data,
                 message="Borrowed books retrieved successfully",
@@ -225,6 +239,13 @@ class BorrowAPIView(APIView):
                     "-borrowed_at"
                 )
             serializer = BorrowListSerializer(borrowed_books, many=True)
+
+            paginator = CustomPagination()
+            page = paginator.paginate_queryset(borrowed_books, request)
+
+            if page is not None:
+                return paginator.get_paginated_response(serializer.data)
+
             return api_response(
                 data=serializer.data,
                 message="Borrowed books retrieved successfully",

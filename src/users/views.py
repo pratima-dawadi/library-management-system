@@ -12,6 +12,7 @@ from rest_framework.permissions import IsAuthenticated
 from .models import User
 from .serializers import UserRegisterSerializer, UserLoginSerializer, UserListSerializer
 from lms.permissions import IsAdmin
+from lms.utils.pagination import CustomPagination
 from lms.utils.response import api_response
 
 
@@ -71,6 +72,13 @@ class UserListView(APIView):
                 User.objects.all().exclude(is_superuser=True).order_by("-date_joined")
             )
             user_data = UserListSerializer(users, many=True).data
+
+            paginator = CustomPagination()
+            page = paginator.paginate_queryset(user_data, request)
+
+            if page is not None:
+                return paginator.get_paginated_response(user_data)
+
             return api_response(
                 data=user_data,
                 message="User list retrieved successfully",
