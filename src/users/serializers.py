@@ -58,6 +58,7 @@ class UserSerializer(serializers.ModelSerializer):
             "address",
             "phone_number",
             "date_joined",
+            "role",
         ]
         read_only_fields = ["id", "date_joined"]
 
@@ -70,10 +71,31 @@ class UserSerializer(serializers.ModelSerializer):
 class UserListSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
-        fields = ["id", "email", "first_name", "last_name"]
-        read_only_fields = ["id", "email", "first_name", "last_name"]
+        fields = ["id", "email", "first_name", "last_name", "date_joined", "role"]
+        read_only_fields = [
+            "id",
+            "email",
+            "first_name",
+            "last_name",
+            "date_joined",
+            "role",
+        ]
 
     def to_representation(self, instance: User) -> dict[str, Any]:
         representation = super().to_representation(instance)
         representation["full_name"] = f"{instance.first_name} {instance.last_name}"
         return representation
+
+
+class UserUpdateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = ["first_name", "last_name", "address", "phone_number", "role"]
+        read_only_fields = ["email"]
+
+    def update(self, instance: User, validated_data: dict[str, Any]) -> User:
+        for attr in ["first_name", "last_name", "address", "phone_number", "role"]:
+            if attr in validated_data:
+                setattr(instance, attr, validated_data[attr])
+        instance.save()
+        return instance

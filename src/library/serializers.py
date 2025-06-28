@@ -76,19 +76,18 @@ class BorrowSerializer(serializers.ModelSerializer):
     class Meta:
         model = Borrow
         fields = [
+            "users",
             "books",
             "borrow_duration",
         ]
 
     def create(self, validated_data):
-        user = self.context["request"].user
         book = validated_data["books"]
         if not book.is_available or book.is_deleted or book.quantity <= 0:
             raise serializers.ValidationError(
                 "This book is not available for borrowing."
             )
-
-        borrow = Borrow.objects.create(users=user, **validated_data)
+        borrow = Borrow.objects.create(**validated_data)
         book.quantity -= 1
         book.is_available = book.quantity > 0
         book.save()

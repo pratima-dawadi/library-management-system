@@ -17,17 +17,14 @@ from .serializers import (
     BorrowListSerializer,
     BorrowUpdateSerializer,
 )
-from lms.permissions import IsAdmin
+from lms.permissions import IsLibrarianOrReadOnly, IsAdminOrLibrarian
 from lms.utils.response import api_response
 from lms.utils.pagination import CustomPagination
 
 
 class BookAPIView(APIView):
 
-    def get_permissions(self):
-        if self.request.method in ["POST"]:
-            return [IsAuthenticated(), IsAdmin()]
-        return [IsAuthenticated()]
+    permission_classes = [IsLibrarianOrReadOnly]
 
     @swagger_auto_schema(
         request_body=BookAddSerializer,
@@ -55,7 +52,7 @@ class BookAPIView(APIView):
     def get(
         self: "BookAPIView", request: Request, *args: Any, **kwargs: Any
     ) -> Response:
-        books = Book.objects.filter(is_deleted=False)
+        books = Book.objects.filter(is_deleted=False).order_by("-created_at")
         serializer = BookListSerializer(books, many=True)
         paginator = CustomPagination()
         page = paginator.paginate_queryset(books, request)
@@ -72,10 +69,7 @@ class BookAPIView(APIView):
 
 class SpecificBookAPIView(APIView):
 
-    def get_permissions(self):
-        if self.request.method in ["PATCH", "DELETE"]:
-            return [IsAuthenticated(), IsAdmin()]
-        return [IsAuthenticated()]
+    permission_classes = [IsLibrarianOrReadOnly]
 
     @swagger_auto_schema(
         responses={
@@ -156,7 +150,7 @@ class SpecificBookAPIView(APIView):
 
 
 class SpecificBookBorrowAPIView(APIView):
-    permission_classes = [IsAuthenticated, IsAdmin]
+    permission_classes = [IsAdminOrLibrarian]
 
     @swagger_auto_schema()
     def get(
@@ -190,10 +184,8 @@ class SpecificBookBorrowAPIView(APIView):
 
 
 class BorrowAPIView(APIView):
-    def get_permissions(self):
-        if self.request.method in ["GET"]:
-            return [IsAuthenticated(), IsAdmin()]
-        return [IsAuthenticated()]
+
+    permission_classes = [IsLibrarianOrReadOnly]
 
     @swagger_auto_schema(request_body=BorrowSerializer)
     def post(
@@ -209,7 +201,7 @@ class BorrowAPIView(APIView):
                     status_code=status.HTTP_201_CREATED,
                 )
             return api_response(
-                message="Borrowing book failed",
+                message=serializer.errors,
                 status_code=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -232,7 +224,7 @@ class BorrowAPIView(APIView):
     ) -> Response:
         try:
             user = request.user
-            if user.is_superuser:
+            if user.is_superuser or user.role == "librarian":
                 borrowed_books = Borrow.objects.all().order_by("-borrowed_at")
             else:
                 borrowed_books = Borrow.objects.filter(users=user).order_by(
@@ -259,7 +251,7 @@ class BorrowAPIView(APIView):
 
 
 class BorrowUpdateAPIView(APIView):
-    permission_classes = [IsAuthenticated, IsAdmin]
+    permission_classes = [IsAdminOrLibrarian]
 
     @swagger_auto_schema(
         request_body=BorrowUpdateSerializer,
@@ -267,8 +259,7 @@ class BorrowUpdateAPIView(APIView):
             status.HTTP_200_OK: openapi.Response(
                 description="Borrow updated successfully",
                 schema=BorrowUpdateSerializer,
-            ),
-            status.HTTP_404_NOT_FOUND: "Borrow not found",
+            )
         },
     )
     def patch(
@@ -279,7 +270,12 @@ class BorrowUpdateAPIView(APIView):
         **kwargs: Any,
     ) -> Response:
         try:
-            borrow = Borrow.objects.get(id=id, users=request.user)
+            user = request.user
+            if user.is_superuser or user.role == "librarian":
+                borrow = Borrow.objects.get(id=id)
+            else:
+                borrow = Borrow.objects.get(id=id, users=user)
+
             serializer = BorrowUpdateSerializer(borrow, data=request.data, partial=True)
             if serializer.is_valid(raise_exception=True):
                 serializer.save()

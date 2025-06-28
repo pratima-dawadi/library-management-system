@@ -7,10 +7,14 @@ from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
-from rest_framework.permissions import IsAuthenticated
 
 from .models import User
-from .serializers import UserRegisterSerializer, UserLoginSerializer, UserListSerializer
+from .serializers import (
+    UserRegisterSerializer,
+    UserLoginSerializer,
+    UserListSerializer,
+    UserUpdateSerializer,
+)
 from lms.permissions import IsAdmin
 from lms.utils.pagination import CustomPagination
 from lms.utils.response import api_response
@@ -23,6 +27,9 @@ class UserRegisterView(APIView):
         self: "UserRegisterView", request: Request, *args: Any, **kwargs: Any
     ) -> Response:
         serializer = UserRegisterSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+
         if not serializer.is_valid():
             return api_response(
                 data=serializer.errors,
@@ -60,8 +67,40 @@ class UserLoginView(APIView):
         )
 
 
+class UserUpdateView(APIView):
+    permission_classes = [IsAdmin]
+
+    @swagger_auto_schema(
+        request_body=UserUpdateSerializer,
+    )
+    def patch(
+        self: "UserUpdateView", request: Request, id: int, *args: Any, **kwargs: Any
+    ) -> Response:
+        try:
+            user = User.objects.get(id=id)
+            serializer = UserUpdateSerializer(user, data=request.data, partial=True)
+            serializer.is_valid(raise_exception=True)
+            serializer.save()
+
+            return api_response(
+                data=serializer.data,
+                message="User updated successfully",
+                status_code=status.HTTP_200_OK,
+            )
+        except User.DoesNotExist:
+            return api_response(
+                message="User not found",
+                status_code=status.HTTP_404_NOT_FOUND,
+            )
+        except Exception as e:
+            return api_response(
+                message=f"Error updating user: {str(e)}",
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+
 class UserListView(APIView):
-    permission_classes = [IsAuthenticated, IsAdmin]
+    permission_classes = [IsAdmin]
 
     @swagger_auto_schema()
     def get(

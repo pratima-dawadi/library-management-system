@@ -12,6 +12,7 @@ from .serializers import (
     BookReviewAddSerializer,
     BookReviewSerializer,
 )
+from library.models import Book
 from lms.utils.pagination import CustomPagination
 from lms.utils.response import api_response
 
@@ -51,7 +52,7 @@ class BookReviewAPIView(APIView):
     ) -> Response:
         user = request.user
 
-        if user.is_superuser:
+        if user.is_superuser or user.role == "librarian":
             book_reviews = BookReview.objects.filter(is_deleted=False).order_by(
                 "-created_at"
             )
@@ -90,16 +91,19 @@ class SpecificBookReviewAPIView(APIView):
         **kwargs: Any,
     ) -> Response:
         try:
-            book_review = BookReview.objects.get(id=id, is_deleted=False)
-            if not request.user.is_superuser and book_review.user != request.user:
-                return Response(
-                    {"detail": "You do not have permission to view this review."},
-                    status=status.HTTP_403_FORBIDDEN,
+            if not Book.objects.filter(id=id, is_deleted=False).exists():
+                return api_response(
+                    message="Book not found",
+                    status_code=status.HTTP_404_NOT_FOUND,
                 )
-            serializer = BookReviewSerializer(book_review)
+
+            book_reviews = BookReview.objects.filter(
+                book=id, is_deleted=False
+            ).order_by("-created_at")
+            serializer = BookReviewSerializer(book_reviews, many=True)
 
             paginator = CustomPagination()
-            page = paginator.paginate_queryset([book_review], request)
+            page = paginator.paginate_queryset(book_reviews, request)
 
             if page is not None:
                 return paginator.get_paginated_response(serializer.data)
