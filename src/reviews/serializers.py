@@ -34,3 +34,27 @@ class BookReviewSerializer(serializers.ModelSerializer):
             "created_at",
             "is_deleted",
         ]
+
+
+class BookReviewListSerializer(serializers.ModelSerializer):
+    user = UserSerializer()
+
+    class Meta:
+        model = BookReview
+        fields = [
+            "id",
+            "user",
+            "rating",
+            "comment",
+            "created_at",
+        ]
+
+    def to_representation(self, instance):
+        representation = super().to_representation(instance)
+        representation["user"] = {
+            "id": instance.user.id,
+            "email": instance.user.email,
+            "first_name": instance.user.first_name,
+            "last_name": instance.user.last_name,
+        }
+        return representation

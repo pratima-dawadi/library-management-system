@@ -2,6 +2,8 @@ from rest_framework import serializers
 from .models import Book, Author, Borrow
 from users.serializers import UserSerializer
 
+# from reviews.serializers import BookReviewListSerializer
+
 
 class AuthorSerializer(serializers.ModelSerializer):
     class Meta:
@@ -56,6 +58,7 @@ class BookAddSerializer(serializers.ModelSerializer):
 
 class BookListSerializer(serializers.ModelSerializer):
     authors = AuthorSerializer(many=True, read_only=True)
+    reviews = serializers.SerializerMethodField()
 
     class Meta:
         model = Book
@@ -69,7 +72,16 @@ class BookListSerializer(serializers.ModelSerializer):
             "created_at",
             "is_deleted",
             "authors",
+            "reviews",
         ]
+
+    def get_reviews(self, obj):
+        from reviews.serializers import BookReviewListSerializer
+
+        reviews = obj.reviews.filter(is_deleted=False).order_by("-created_at")
+        return BookReviewListSerializer(
+            reviews, many=True, context={"request": self.context.get("request")}
+        ).data
 
 
 class BorrowSerializer(serializers.ModelSerializer):
